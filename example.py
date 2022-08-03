@@ -30,7 +30,7 @@ parser.add_argument("-rm_wiener", help='Removes Wiener filter', action='store_tr
 args = parser.parse_args()
 
 
-def main():
+def PRNU():
     """
     Main example script. Load a subset of flatfield and natural images from Dresden.
     For each device compute the fingerprint from all the flatfield images.
@@ -49,19 +49,21 @@ def main():
     print('Remove zero mean: ' + str(remove_zero_m))
     print('Remove wiener: ' + str(remove_wiener) + '\n')
 
-    ff_dirlist = np.array(sorted(glob('test/data/ff/*.jpg'))) # load flatfield images 
+    ff_dirlist = np.array(sorted(glob('datasets/files/*'))) # load flatfield images 
     ff_device = np.array([os.path.split(i)[1].rsplit('_', 1)[0] for i in ff_dirlist]) # extract device name from filename
 
-    nat_dirlist = np.array(sorted(glob('test/data/nat/*.jpg'))) # load natural images
+    nat_dirlist = np.array(sorted(glob('datasets/files/*'))) # load natural images
     nat_device = np.array([os.path.split(i)[1].rsplit('_', 1)[0] for i in nat_dirlist]) # extract device name from filename
     print("ff_device: ", ff_device)
     print("nat_device: ", nat_device)
     print("\n")
     print("ff_dirlist: ", ff_dirlist)
     print("nat_dirlist: ", nat_dirlist)
+    '''
+    difference between ff_device and nat_device is that ff_device contains the device name and nat_device contains the image name
+    '''
     print('Computing fingerprints')
     fingerprint_device = sorted(np.unique(ff_device)) # extract unique device names
-
     k = []
     for device in fingerprint_device: # for each device
         imgs = [] # list of flatfield images
@@ -74,9 +76,24 @@ def main():
             if im_arr.ndim != 3: # if not 3D convert to 3D
                 print('Image is not RGB: {}'.format(img_path))# print error message
                 continue
-            im_cut = prnu.cut_ctr(im_arr, (512, 512, 3)) # cut image to 512x512 pixels
+            size = im_arr.shape # get image size
+            print('Image size: {}'.format(size)) # print image size
+            im_cut = prnu.cut_ctr(im_arr,size) # cut image
+            #im_cut = prnu.cut_ctr(im_arr, (512, 512, 3)) # cut image to 512x512 pixels
             imgs += [im_cut] # add image to list
+        
+        # number of channels
+        n_channels = imgs[0].shape[2]
+        print('Number of channels: {}'.format(n_channels))
+
+        # make sure all images have the same number of channels (3)
+        print('file name: ', ff_dirlist[ff_device == device])
         k += [prnu.extract_multiple_aligned(imgs, processes=1)] # extract fingerprint for device
+        '''
+        Input image must have 1 or 3 channels is because the fingerprint is computed using the mean of the channels
+        solution: convert to 3 channels
+        '''
+
 
 
     k = np.stack(k, 0) # stack fingerprints
@@ -85,8 +102,11 @@ def main():
     print('Computing residuals') 
 
     imgs = []
+    size = im_arr.shape # get image size
+    print('Image size: {}'.format(size)) # print image size
     for img_path in nat_dirlist:
-        imgs += [prnu.cut_ctr(np.asarray(Image.open(img_path)), (512, 512, 3))] # load natural images 
+        imgs += [prnu.cut_ctr(np.asarray(Image.open(img_path)), size)] # load natural images 
+
 
 
     w = []
@@ -103,7 +123,7 @@ def main():
     cc_aligned_rot = prnu.aligned_cc(k, w)['cc']# compute cross correlation for each device and each rotation 
 
     print('Computing statistics cross correlation')
-    stats_cc = prnu.stats(cc_aligned_rot, gt) # compute statistics for each device and each rotation 
+    #stats_cc = prnu.stats(cc_aligned_rot, gt) # compute statistics for each device and each rotation 
 
     print('Computing PCE')
     pce_rot = np.zeros((len(fingerprint_device), len(nat_device))) # initialize PCE matrix
@@ -129,18 +149,19 @@ def main():
                     fp += 1. # add 1 to false positive
                 else: # if PCE is less than 60
                     tn += 1. # add 1 to true negative
-        tpr = tp / (tp + fn) # compute true positive rate
-        fpr = fp / (fp + tn) # compute false positive rate
+        print("tp : {}".format(tp)), print("fp : {}".format(fp)), print("tn : {}".format(tn)), print("fn : {}".format(fn))
+        #tpr = tp / (tp + fn) # compute true positive rate
+        #fpr = fp / (fp + tn) # compute false positive rate
 
         plt.title('PRNU for ' + str(fingerprint_device[fingerprint_idx]) + ' - ' + denoiser) # set title
         plt.xlabel('query images') # set x label
         plt.ylabel('PRNU') # set y label
 
         plt.bar(natural_indices, pce_values) # plot bar chart
-        plt.text(0.85, 0.85, 'TPR: ' + str(round(tpr, 2)) + '\nFPR: '+ str(round(fpr, 2)), 
-         fontsize=10, color='k',
-         ha='left', va='bottom',
-         transform=plt.gca().transAxes)# add text to plot
+        #plt.text(0.85, 0.85, 'TPR: ' + str(round(tpr, 2)) , 
+         #fontsize=10, color='k',
+         #ha='left', va='bottom',
+         #transform=plt.gca().transAxes)# add text to plot
         plt.axhline(y=60, color='r', linestyle='-') # add red line at 60
         plt.xticks(natural_indices) # set x ticks
         plt.savefig('plots_test/'+ denoiser + '/' +str(fingerprint_device[fingerprint_idx])+'.png') # save plot
@@ -150,15 +171,44 @@ def main():
     print('Computing statistics on PCE') # compute statistics on PCE
     stats_pce = prnu.stats(pce_rot, gt) # compute statistics on PCE
 
-    print('AUC on CC {:.2f}'.format(stats_cc['auc'])) # print AUC on CC
+   # print('AUC on CC {:.2f}'.format(stats_cc['auc'])) # print AUC on CC
     print('AUC on PCE {:.2f}'.format(stats_pce['auc'])) # print AUC on PCE
 
     end = time.time() # end time
     elapsed = int(end - start) # elapsed time
     print('Elapsed time: '+ str(elapsed) + ' seconds') # print elapsed time
+    """for fingerprint_idx, fingerprint_k in enumerate(k):
+        print(fingerprint_device[fingerprint_idx])
+        for natural_idx, natural_w in enumerate(w):
+            #print image name and PCE
+            print(nat_dirlist[natural_idx])
+            # print value of PCE
+            print(pce_rot[fingerprint_idx, natural_idx])
+        print('\n')
+    """
+    list,l=[],[]
+    ## print all image names whoes PCE is greater than 60 in a line for each device
+    for fingerprint_idx, fingerprint_k in enumerate(k):
+        #print(fingerprint_device[fingerprint_idx])
+        for natural_idx, natural_w in enumerate(w):
+            if pce_rot[fingerprint_idx, natural_idx] > 60.:
+                #print(nat_dirlist[natural_idx],end='')
+                #print(pce_rot[fingerprint_idx, natural_idx])
+                l.append(nat_dirlist[natural_idx])
+        list.append([fingerprint_device[fingerprint_idx],l])
+        l=[]
+    #print(list)
+    for i in list:
+        #print(i,end='\n\n')
+        print(i[0])
+        for j in i[1]:
+            print(j,end='\n')
+
+
+
 
 if __name__ == '__main__':
-    main()
+    PRNU()
 
 '''
 PRNU is a tool for the analysis of natural images. It is based on the principle of fingerprinting, which is a method for the analysis of images.

@@ -232,15 +232,13 @@ def cut_ctr(array: np.ndarray, sizes: tuple) -> np.ndarray:
     :return: multidimensional array, center cut
     """
     array = array.copy()
-    if not (array.ndim == len(sizes)):
-        raise ArgumentError('array.ndim must be equal to len(sizes)')
     for axis in range(array.ndim):
         axis_target_size = sizes[axis]
         axis_original_size = array.shape[axis]
         if axis_target_size > axis_original_size:
-            raise ValueError(
-                'Can\'t have target size {} for axis {} with original size {}'.format(axis_target_size, axis,
-                                                                                      axis_original_size))
+            # convert axis_target_size to the same unit as axis_original_size
+            axis_target_size = axis_target_size * axis_original_size / array.shape[axis]
+            print("converted axis_target_size {} to the same unit as axis_original_size {}".format(axis_target_size, axis_original_size))
         elif axis_target_size < axis_original_size:
             axis_start_idx = (axis_original_size - axis_target_size) // 2
             axis_end_idx = axis_start_idx + axis_target_size
@@ -339,6 +337,10 @@ def rgb2gray(im: np.ndarray) -> np.ndarray:
         im = np.reshape(im, (w * h, 3))
         im_gray = np.dot(im, rgb2gray_vector)
         im_gray.shape = (w, h)
+    # for 4 channels, do the same as for 3 channels
+    elif im.shape[2] == 4:
+        im_gray = rgb2gray(im[:, :, :3])
+
     else:
         raise ValueError('Input image must have 1 or 3 channels')
 
