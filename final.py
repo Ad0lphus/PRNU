@@ -41,7 +41,7 @@ def fingerptint_matching(auth_image_path, database):
     # detect SIFT keypoints and compute the descriptors
     sift = cv2.SIFT.create()
     kp1, des1 = sift.detectAndCompute(auth_image_gray, None)
-    # create BFMatcher object
+    # create BFMatcher object for matching keypoints in image 1 and image 2
     bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
     # initialize the score
     score = 0
@@ -58,7 +58,7 @@ def fingerptint_matching(auth_image_path, database):
         matches = bf.match(des1, des2)
         # sort the matches in the order of their distance
         matches = sorted(matches, key=lambda x: x.distance)
-        # calculate the score
+        # calculate the score for the image and add it to the total score out of 100
         score += len(matches) / len(kp1) * 100
         # print the score
         scores.append([file,len(matches) / len(kp1) * 100])
@@ -265,7 +265,7 @@ import shutil
 if __name__ == '__main__':
     auth_image_path = "datasets/check_auth.jpg"
     auth_image_name=auth_image_path.split('/')[-1]
-    database = "datasets/files"
+    database = "datasets/runn"
     print("\t\tFINGERPRINT AUTHENTICATION\n")
     scoresList=fingerptint_matching(auth_image_path, database)
     # check in scoresList the image names whoes PCE is greater than 60
@@ -322,4 +322,9 @@ Working :
     12. Plot AUC on PCE
 
 Exceptions : 
+    1. If the natural image is not a natural image, then the program will throw an exception.
+    2. If the flatfield image is not a flatfield image, then the program will throw an exception.
+'''
+
+
 '''
