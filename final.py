@@ -265,7 +265,7 @@ import shutil
 if __name__ == '__main__':
     auth_image_path = "datasets/check_auth.jpg"
     auth_image_name=auth_image_path.split('/')[-1]
-    database = "datasets/runn"
+    database = "datasets/files"
     print("\t\tFINGERPRINT AUTHENTICATION\n")
     scoresList=fingerptint_matching(auth_image_path, database)
     # check in scoresList the image names whoes PCE is greater than 60
